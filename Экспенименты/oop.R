@@ -1,4 +1,6 @@
 # https://www.ibm.com/developerworks/ru/library/l-r3/  ООП
+# http://skesov.ru/kak-dobavit-lyubuyu-programmu-v-avtozagruzku-sredstvami-operatsionnoy-sistemyi-windows-8-1-8-7-vista/
+# C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp
 
 x = c(1, 2)
 x.y = c(3, 4)
@@ -7,6 +9,13 @@ args(lm)
 predict
 methods("predict")
 
+
+# трассировка
+trace("[<-") 
+x <-  1:10
+x[3] <-  4
+
+###########################################################################
 v = 1:1000
 typeof(v)
 attributes(v)
@@ -141,10 +150,22 @@ print(v)
 ###############################################
 methods(class="data.frame") 
 
+`if`
+`if` <- function(...) {"Hello"}
+if (TRUE) 1 else 0
+`if` <- .Primitive("if")
+if (TRUE) 1 else 0
 
 
 
-
+trace("[<-")
+trace("[")
+x <-  1:10 
+x[3] <-  4 
+x[4]
+untrace("[<-")
+untrace("[")
+###############################################
 
 
 z = list(j=c(2, 3), k=c(9, 0))

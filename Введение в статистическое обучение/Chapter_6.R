@@ -77,7 +77,7 @@ predict.regsubsets = function(object, newdata, id, ...){
   xvars = names(coefi)
   mat[, xvars]%*%coefi
 }
-
+# apropos("predict")
 regfit.best = regsubsets(Salary~., data=Hitters, nvmax=19)
 coef(regfit.best, 10)
 
@@ -100,7 +100,7 @@ plot(mean.cv.errors, type='b')
 reg.best = regsubsets(Salary~., data=Hitters, nvmax=19)
 coef(reg.best, 11)
 
-
+############################################################################################
 # Chapter 6 Lab 2: Ridge Regression and the Lasso
 # ГРЕБНЕВАЯ РЕГРЕССИЯ И ЛАССО
 x = model.matrix(Salary~., Hitters)[, -1]
@@ -112,35 +112,50 @@ library(glmnet)
 grid = 10^seq(10, -2, length=100)
 ridge.mod = glmnet(x, y, alpha=0, lambda=grid)
 dim(coef(ridge.mod))
+
 ridge.mod$lambda[50]
 coef(ridge.mod)[, 50]
 sqrt(sum(coef(ridge.mod)[-1, 50]^2))
+
 ridge.mod$lambda[60]
 coef(ridge.mod)[, 60]
 sqrt(sum(coef(ridge.mod)[-1, 60]^2))
+
 predict(ridge.mod, s=50, type="coefficients")[1:20, ]
+
 set.seed(1)
 train = sample(1:nrow(x), nrow(x)/2)
 test = (-train)
 y.test = y[test]
+
 ridge.mod = glmnet(x[train,], y[train], alpha=0, lambda=grid, thresh=1e-12)
 ridge.pred = predict(ridge.mod, s=4, newx=x[test,])
-mean((ridge.pred-y.test)^2)
+mean((ridge.pred-y.test)^2)  # MSE на контрольной выборке
+# Заметим, что если бы мы построили модель, содержащую только свободный член, то каждое предсказанное значение
+# было бы равно среднему значению обучающих наблюдений. При таком сценарии мы расчитиыали бы MSE на контрольной
+# выборке следующим образом
 mean((mean(y[train])-y.test)^2)
+
+# идентичный результат можно было получить путем подгонки гребневой регресси с очень большим значением s 1e10 - это 10 в 10 степени
 ridge.pred = predict(ridge.mod, s=1e10, newx=x[test,])
 mean((ridge.pred-y.test)^2)
-ridge.pred = predict(ridge.mod, s=0, newx=x[test,], exact=T)
+
+ridge.pred = predict(ridge.mod, s=0, newx=x[test,], exact=T)  # простая линейная регрессия s=0
 mean((ridge.pred-y.test)^2)
 lm(y~x, subset=train)
 predict(ridge.mod, s=0, exact=T, type="coefficients")[1:20, ]
+
 set.seed(1)
-cv.out = cv.glmnet(x[train, ], y[train], alpha=0)
+cv.out = cv.glmnet(x[train, ], y[train], alpha=0)  # перекрестная проверка
 plot(cv.out)
 bestlam = cv.out$lambda.min
 bestlam
+# посмотрим MSE
 ridge.pred = predict(ridge.mod, s=bestlam, newx=x[test, ])
 mean((ridge.pred - y.test)^2)
-out = glmnet(x,y,alpha=0)
+
+# подгоняем гребневую регрессию на основе полного набора данных со значением s, найденным путем перекрестной проверки
+out = glmnet(x, y, alpha=0)
 predict(out, type="coefficients", s=bestlam)[1:20, ]
 
 # The Lasso
