@@ -1,6 +1,6 @@
 # http://www.quintuitive.com/2012/08/22/arma-models-for-trading/
 # https://gist.github.com/2913657
-
+require(parallel)
 armaSearch_old <- function(xx, minOrder=c(0,0), maxOrder=c(5,5), trace=FALSE){
   bestAic <- 1e9
   len <- NROW(xx) 
@@ -92,50 +92,42 @@ back_indicator <- function(){
 
 armaTryFit = function(ll, data, trace=FALSE, includeMean=TRUE, withForecast=TRUE, forecastLength=1)
 {
-  formula = as.formula(paste(sep="", "xx ~ arma(", ll[1], ",", ll[2], ")" ))
+  formula = as.formula(paste(sep="", "xx ~ arma(", ll[1], ",", ll[2], ")"))
   
   fit = tryCatch(armaFit(formula=formula, data=data, include.mean=includeMean),
                  error=function(err) FALSE,
                  warning=function(warn) FALSE)
   
-  pp = NULL 
+  pp = NULL    
   
-  if(!is.logical(fit))
-  {
-    if(withForecast)
-    {    
-      pp = tryCatch(predict( fit, n.ahead=forecastLength, doplot=F),
+  if(!is.logical(fit)){
+    if(withForecast){    
+      pp = tryCatch(predict(fit, n.ahead=forecastLength, doplot=F),
                     error=function(err) FALSE,
                     warning=function(warn) FALSE)
-      if(is.logical(pp))
-      {    
+      if(is.logical(pp)){    
         fit = NULL 
       }    
     }    
   }
-  else 
-  {
+  else{
     fit = NULL 
   }
   
   if(trace){
-    if(is.null(fit))
-    {    
+    if(is.null(fit)){    
       cat(paste(sep="",
                 "   Analyzing (", ll[1], ",", ll[2], ") done.",
-                "Bad model.\n" ))
+                "Bad model.\n"))
     }    
-    else 
-    {    
-      if(withForecast)
-      {    
+    else{    
+      if(withForecast){    
         cat(paste(sep="",
                   "   Analyzing (", ll[1], ",", ll[2], ") done.",
                   "Good model. AIC = ", round(fit@fit$aic,6),
                   ", forecast: ", round(pp$pred[1],6), "\n" ))
       }    
-      else 
-      {    
+      else{    
         cat(paste(sep="",
                   "   Analyzing (", ll[1], ",", ll[2], ") done.",
                   "Good model. AIC = ", round(fit@fit$aic,6), ".\n" ))
@@ -149,67 +141,60 @@ armaTryFit = function(ll, data, trace=FALSE, includeMean=TRUE, withForecast=TRUE
 armaSearch = function(xx, minOrder=c(0,0), maxOrder=c(5,5), trace=FALSE, includeMean=TRUE,
                       withForecast=TRUE, forecastLength=1, paramSum=c(1,1e9), cores)
 {
-  require( fArma )
-  require( parallel )
+  # require(fArma)
+  # require(parallel)
   
-  len = NROW( xx )
+  len = NROW(xx)
   
-  if( missing( cores ) )
-  {
+  if( missing(cores)){
     cores = 1
   }
   
   models = list( )
   
-  for( p in minOrder[1]:maxOrder[1] )
-    for( q in minOrder[2]:maxOrder[2] )
+  for(p in minOrder[1]:maxOrder[1])
+    for(q in minOrder[2]:maxOrder[2])
     {
       pqSum = p + q
-      if( pqSum <= paramSum[2] && pqSum >= paramSum[1] )
-      {
-        models[[length( models ) + 1]] = c( p, q )
+      if(pqSum <= paramSum[2] && pqSum >= paramSum[1]){
+        models[[length(models) + 1]] = c(p, q)
       }
     }
   
-  res = mclapply( models,
+  res = mclapply(models,
                   armaTryFit,
                   data=as.ts(xx),
                   trace=trace,
                   includeMean=includeMean,
                   withForecast=TRUE,
                   forecastLength=forecastLength,
-                  mc.cores=cores )
+                  mc.cores=cores)
   
   bestIc = 1e9
   bestFit = NULL
   
-  for( rr in res )
-  {
-    if( !is.null( rr ) )
-    {
+  for(rr in res){
+    if(!is.null(rr)){
       ic = rr@fit$aic
-      if( ic < bestIc )
-      {
+      if(ic < bestIc){
         bestIc = ic
         bestFit = rr
       }
     }
   }
   
-  if( bestIc < 1e9 )
-  {
-    return( bestFit )
+  if(bestIc < 1e9){
+    return(bestFit)
   }
   
-  return( NULL )
+  return(NULL)
 }
 
 
-armaComputeForecasts = function(x, history=500, minOrder=c(0,0),  maxOrder=c(5,5), trace=FALSE,
-                                paramSum=c(0,1e9), includeMean=TRUE, startDate, endDate, lags=1,
+armaComputeForecasts = function(x, history=500, minOrder=c(0, 0),  maxOrder=c(5, 5), trace=FALSE,
+                                paramSum=c(0, 1e9), includeMean=TRUE, startDate, endDate, lags=1,
                                 cores)
 {
-  print("armaComputeForecasts")
   stopifnot(is.xts(x))
   
   xx = x
@@ -261,7 +246,7 @@ armaComputeForecasts = function(x, history=500, minOrder=c(0,0),  maxOrder=c(5,5
                   ", to: ", tail(index(yy),1 ),
                   ", length: ", length( index( yy ) ),
                   "\n" ))
-      cat( paste( sep="", "   forecast length: ", forecastLength, "\n\n" ))
+      cat( paste(sep="", "   forecast length: ", forecastLength, "\n\n"))
     }
     
     # Find the best fit
@@ -287,9 +272,10 @@ armaComputeForecasts = function(x, history=500, minOrder=c(0,0),  maxOrder=c(5,5
       }
       
       # Forecast
-      fore = tryCatch( predict(bestFit, n.ahead=forecastLength, doplot=FALSE),
-                       error=function(err) FALSE,
-                       warning=function(warn) FALSE)
+      fore = tryCatch(predict(bestFit, n.ahead=forecastLength, doplot=FALSE),
+                      error=function(err) FALSE,
+                      warning=function(warn) FALSE)
+      
       if(!is.logical(fore)){
         # Save the forecast
         forecasts[currentIndex] = tail( fore$pred, 1)
@@ -314,7 +300,7 @@ armaComputeForecasts = function(x, history=500, minOrder=c(0,0),  maxOrder=c(5,5
       }
     }
     
-    if( nextIndex > len ) break
+    if(nextIndex > len) break
     currentIndex = nextIndex
   }
   
