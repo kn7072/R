@@ -133,3 +133,4 @@ lines(x = all.curves[,"Filtered-magnitude"], col = "darkgreen")
 lines(x = all.curves[, "Unfiltered"], col = "blue")
 legend(x = 'bottomleft', legend = c("Filtered-magnitude and p-val", "Filtered-magnitude", "Unfiltered"),
        lty = 1, col = c("deeppink2", "darkgreen", "blue"))
+
