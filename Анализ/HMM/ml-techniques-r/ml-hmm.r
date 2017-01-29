@@ -1,0 +1,102 @@
+#Install the packages we need
+#install.packages(‘quantmod’) # Library to calculate indicators
+library(quantmod) 
+#install.packages(‘depmixS4’) # Library for the HMM algorithm
+library(depmixS4) 
+#install.packages(‘ggplot2’) # Library for plots
+library(ggplot2) 
+#install.packages(‘gridExtra’) # Library for arranging plots
+library(gridExtra) 
+setwd("D:/R_project/Анализ/HMM")
+StrategyTrades <- read.csv("ml-strategy-trades.csv")
+
+
+#Calculate current equity curve
+Equity<-cumsum(StrategyTrades[, 9]) 
+plot(Equity)
+#Calculate SMA and remove rows where indicator is being calculated
+SMA.10<-SMA(Equity,n=10)
+SMA.10.S<-SMA.10[-c(1:9)] 
+
+#Remove data to match up with 10-period SMA and find  the difference between Equity curve and 10-period SMA
+Equity.S<-Equity[-c(1:9)]
+Difference<-Equity.S-SMA.10.S 
+
+#Calculate 5-period rate of change, in absolute terms, not percentage, of the SMA and remove rows where indicator is being calculated
+ROC.5<-momentum(SMA.10.S, n=5)
+ROC.5.S<-ROC.5[-c(1:5)] 
+
+#Remove data to match up ROC.5
+Difference.S<-Difference[-c(1:5)] 
+
+
+#Create the data set for our model
+HMMData<-data.frame(ROC.5.S, Difference.S) 
+
+#Build our HMM Model
+set.seed(10)
+Model1<-depmix(list(ROC.5.S~1, Difference.S~1), data=HMMData, nstates=2, family=list(gaussian(),gaussian()))
+
+#Fit the model to the data set and find the posterior odds for each data point
+Modelfit<-fit(Model1, verbose = FALSE) 
+Modelpost<-posterior(Modelfit) 
+
+#Match up equity curve and trades with data set
+Equity.S<-Equity[-c(1:15)]
+Trades<-StrategyTrades[-c(1:14),9]
+
+#Shift data sets back to prevent data snooping (we only know the regime AFTER the trade has closed)
+Modelpost.A<-Modelpost[-1,]
+Trades.A<-Trades[-1260]
+HMMData.A<-HMMData[-1,]
+
+#Only incorporate trades in Regime 1
+Model.Trades<-ifelse(Modelpost.A[,1]==1,Trades.A,0) 
+
+#Build our new equity curve
+Balance.Model.Trades<-cumsum(Model.Trades) 
+
+#Create the data set for the plots
+HMM.Plot.Data<-data.frame(StrategyTrades[-c(1:15),1],HMMData.A,Modelpost.A,Equity.S,Balance.Model.Trades)
+
+
+#Build our three plots of the indicators and HMM regimes
+Regime.Plot<-ggplot(HMM.Plot.Data,aes(x=HMM.Plot.Data[,1],y=HMM.Plot.Data[,4]))+geom_line(color="darkgreen")+labs(title="Market Regime",y="Regime",x="Trade Number")
+
+Difference.Plot<-ggplot(HMM.Plot.Data,aes(x=HMM.Plot.Data[,1],y=HMM.Plot.Data[,3]))+geom_line(color="purple")+labs(title="Difference Between Current Balance and Equity Line SMA",y="Distance (pips)",x="Trade Number")
+
+ROC.Plot<-ggplot(HMM.Plot.Data,aes(x=HMM.Plot.Data[,1],y=HMM.Plot.Data[,2]))+geom_line(color="darkblue")+labs(title="ROC of Equity Line SMA",y="Rate of Change (pips)",x="Trade Number")
+
+grid.arrange(ROC.Plot,Difference.Plot,Regime.Plot,ncol=1,nrow=3)
+
+#Build the plots of the before and after equity curve
+Before.Equity<-ggplot(HMM.Plot.Data,aes(x=HMM.Plot.Data[,1],y=HMM.Plot.Data[,7]))+geom_line(color="darkblue")+labs(title="Original Equity Curve",y="Total Return (pips)",x="Trade Number")+ylim(-10,3200)
+
+After.Equity<-ggplot(HMM.Plot.Data,aes(x=HMM.Plot.Data[,1],y=HMM.Plot.Data[,8]))+geom_line(color="darkgreen")+labs(title="HMM Model Equity Curve",y="Total Return (pips)",x="Trade Number")+ylim(-10,3200)
+
+grid.arrange(After.Equity,Before.Equity,ncol=1,nrow=2)
+
+
+# Combining the models:
+  
+#Create our data sets
+RF.Final.Data<-data.frame(FinalDataSet[,1],pf,RF.Final.Trades,FinalDataSet[,2])
+Combined.Model.Data<-data.frame(HMM.Plot.Data[834:1256,],RF.Final.Data)
+
+#Only trade in Regime 1
+Combined.Model.Trades<-ifelse(Combined.Model.Data[,4]==1,Combined.Model.Data[,11],0)
+
+#Find final and original equity
+Combined.Model.Equity<-cumsum(Combined.Model.Trades)
+Original.Equity<-cumsum(Combined.Model.Data[,12])
+
+#Combine the data to plot
+Combined.Plot.Data<-data.frame(Combined.Model.Data[,1],Combined.Model.Equity,Original.Equity)
+
+#Plot the data
+Combined.Equity<-ggplot(Combined.Plot.Data,aes(x=Combined.Plot.Data[,1],y=Combined.Plot.Data[,2]))+geom_line(color="darkgreen")+labs(title="Combined Model Equity Curve",y="Total Return (pips)",x="Trade Number")+ylim(-100,2000)
+
+Original.Equity<-ggplot(Combined.Plot.Data,aes(x=Combined.Plot.Data[,1],y=Combined.Plot.Data[,3]))+geom_line(color="darkblue")+labs(title="Original Equity Curve",y="Total Return (pips)",x="Trade Number")+ylim(-100,2000)
+
+grid.arrange(Combined.Equity,Original.Equity,ncol=1,nrow=2)
+

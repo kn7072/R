@@ -1,0 +1,62 @@
+#Install the packages we need
+install.packages(‘randomFores’)
+library(randomForest)
+install.packages(‘ggplot2’)
+library(ggplot2)
+install.packages(‘gridExtra’)
+library(gridExtra)
+
+
+Data<-StrategyTrades[,c(1,9,10)] #Grab the data we need, the date, trade return, and class of the trade (Winning, Losing, Neutral)
+
+#Create our lagged variables
+Lag1<-Data[-1274,3] 
+Lag2<-Data[-c(1273:1274),3]
+Lag3<-Data[-c(1272:1274),3]
+
+
+# Line up the lagged variables
+Lag1.Shift<-Lag1[-c(1:2)]
+Lag2.Shift<-Lag2[-1]
+Current.Bar<-Data[-c(1:3),3]
+
+# Create a data set of the inputs
+Inputs<-data.frame(Current.Bar,Lag1.Shift,Lag2.Shift,Lag3)
+
+# Build the training and test data sets
+xtrain<-Inputs[1:846,2:4]
+ytrain<-Inputs[1:846,1]
+xtest<-Inputs[847:1269,2:4]
+
+
+# Build our random forest model
+set.seed(10)
+rf<-randomForest(xtrain,ytrain,ntree=10000,mtry=3)
+
+# Predict the outputs over the test set
+pf<-predict(rf,xtest)
+
+# Build our final data set
+FinalDataSet<-data.frame(StrategyTrades[847:1269,c(1,9)],pf)
+
+# Double the position size of winning trades, halve losing trades and keep neutral trades the same
+WinningTrades<-ifelse(FinalDataSet[,3]=="Winning",2*FinalDataSet[,2],0)
+LosingTrades<-ifelse(FinalDataSet[,3]=="Losing",.5*FinalDataSet[,2],0)
+NeutralTrades<-ifelse(FinalDataSet[,3]=="Neutral",FinalDataSet[,2],0)
+
+# Combine our trades
+RF.Final.Trades<-WinningTrades+LosingTrades+NeutralTrades
+
+# Calculate the random forest equity curve
+RF.Final.Equity<-cumsum(RF.Final.Trades)
+
+# Calculate the original equity curve
+OriginalEquity<-cumsum(FinalDataSet[,2])
+
+# Create a data frame for data used to plot
+RF.Plot.Data<-data.frame(FinalDataSet[,1],RF.Final.Equity,OriginalEquity)
+
+# Build our plots
+RF.After.Equity<-ggplot(RF.Plot.Data,aes(x=RF.Plot.Data[,1],y=RF.Plot.Data[,2]))+geom_line(color="darkgreen")+labs(title="Random Forest Equity Curve",y="Total Return (pips)",x="Trade Number")+ylim(-100,2000)
+RF.Before.Equity<-ggplot(RF.Plot.Data,aes(x=RF.Plot.Data[,1],y=RF.Plot.Data[,3]))+geom_line(color="darkblue")+labs(title="Original Equity Curve",y="Total Return (pips)",x="Trade Number")+ylim(-100,2000)
+grid.arrange(RF.After.Equity,RF.Before.Equity,ncol=1,nrow=2)

@@ -55,7 +55,8 @@ SVMClassifModel = function(data, targets, returns, lookback = 252, ktype = "C-sv
 
 trainSVM = function(data, ktype, C, crossvalid) {
   # Return a trained svm model
-  trainedmodel = ksvm(targets ~ ., data = data, type = ktype, kernel="rbfdot", kpar=list(sigma=0.05), C = C, prob.model = TRUE, cross = crossvalid)
+  trainedmodel = ksvm(targets ~ ., data = data, type = ktype, kernel="rbfdot", kpar=list(sigma=0.05), 
+                      C = C, prob.model = TRUE, cross = crossvalid)
 }
 
 featureGen = function(sym, returns) {
@@ -182,7 +183,7 @@ summaryStats = function(x, bmk, comp = FALSE) {
 # source("NAME OF THE RSI SYSTEM FILE IN THE FOLDER")
 
 # Load data with quantmod
-getSymbols('SPY', from='2000-06-01')
+getSymbols('GM', from='2000-06-01')  #GM QQQ SPY
 returns = dailyReturn(Cl(SPY), type='log')
 
 # Generate data frame of data and targets
@@ -193,4 +194,5 @@ targets[targets<0] = -1
 targets = as.factor(targets)
 
 # Run the system
-SVMClassifModel(data[30:nrow(data),], targets[30:length(targets)], returns, lookback = 252, ktype = "C-svc", crossvalid = 10, C = 60)
+SVMClassifModel(data[30:nrow(data),], targets[30:length(targets)], returns, lookback = 252, 
+                ktype = "C-svc", crossvalid = 10, C = 60)

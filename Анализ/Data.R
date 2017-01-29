@@ -12,7 +12,7 @@ library(forecast)
 
 # rm(list=ls())
 data <- '2015-01-01'  # '1990-01-01'
-getSymbols('SPY', from = data, src = 'yahoo')
+getSymbols('SPY', from = data, src = 'yahoo') # SPY
 
 diff_log <- na.omit(ts(diff(log(Ad(SPY)))))
 
